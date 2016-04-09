@@ -48,6 +48,19 @@ let getLabels (lhses:string list):string list =
     
     let res = Set.toList (set (getLabels' lhses))
     List.filter (fun x -> not (List.exists (fun x' -> x' = x + "$") res)) res
+ 
+let rec checkPref (s:string) (ps:string list):string =
+
+    let rec checkPref' (s:string) (pref:string):bool =
+        match s with
+        | ""    -> false
+        | _ when s = pref -> true
+        | _ -> checkPref' (s.Substring(0, ((String.length s) - 1))) pref 
+
+    match ps with
+    | [] -> ""
+    | x::xs when checkPref' s x -> x
+    | _ -> checkPref s ps.Tail        
 
 let matchA' (s:string) (a:string list) (b:string list):string =
     if      List.exists (fun x -> s = x) b          then "b" + s
@@ -70,14 +83,9 @@ let rec matchB (s:string) (a:string list) (b:string list) (non:string list) (non
         if      List.exists (fun x -> s + "$" = x) b    then ("b" + s + "$")
         elif    s.[String.length s - 2] = '$'           then "b" + s.Substring(0, (String.length s) - 1)
         elif    String.exists (fun c -> c = '$') s      then matchB (s.Split('$').[0] + "$" + s.Split('$').[1].Substring(1)) a b non nonPerm
+        elif    checkPref s a <> "" then "a" + checkPref s a
         elif    List.exists (fun x -> s = x) a          then "a" + s
         else    "e1"
-
-let rec checkPref (s:string) (pref:string):bool =
-    match s with
-    | ""    -> false
-    | _ when s = pref -> true
-    | _ -> checkPref (s.Substring(0, ((String.length s) - 1))) pref
 
 let build (lhses:string list):state list = 
 
