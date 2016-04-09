@@ -62,10 +62,16 @@ let rec matchA (s:string) (a:string list) (b:string list) (non:string list):stri
     else    "e1"
 
 let rec matchB (s:string) (a:string list) (b:string list) (non:string list) (nonPerm:string list):string =
-    if List.exists (fun x -> s.Substring(0, (String.length s) - 1) = x) nonPerm then s.Substring(0, (String.length s)-1)
-    elif List.exists (fun x -> s = x) b then "b" + s
-    elif List.exists (fun x -> s + "$" = x) b    then ("b" + s + "$")
-    else "" 
+    if String.length s <= 1 then
+        if      List.exists (fun x -> s.Substring(0, (String.length s) - 1) = x) nonPerm then s.Substring(0, (String.length s)-1)
+        elif    List.exists (fun x -> s = x) b then "b" + s
+        else    "e1"
+    else
+        if      List.exists (fun x -> s + "$" = x) b    then ("b" + s + "$")
+        elif    s.[String.length s - 2] = '$'           then "b" + s.Substring(0, (String.length s) - 1)
+        elif    String.exists (fun c -> c = '$') s      then matchB (s.Split('$').[0] + "$" + s.Split('$').[1].Substring(1)) a b non nonPerm
+        elif    List.exists (fun x -> s = x) a          then "a" + s
+        else    "e1"
 
 let rec checkPref (s:string) (pref:string):bool =
     match s with
