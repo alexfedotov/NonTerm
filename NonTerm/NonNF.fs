@@ -69,20 +69,23 @@ let matchA' (s:string) (a:string list) (b:string list):string =
     else    "e1"
 
 let rec matchA (s:string) (a:string list) (b:string list) (non:string list):string = 
-    if      List.exists (fun x -> s.Substring(0, (String.length s) - 1) = x) non then s.Substring(0, (String.length s)-1)
+    if      List.exists (fun x -> s.Substring(0, (String.length s) - 1) = x) non then "a" + s.Substring(0, (String.length s)-1)
     elif    List.exists (fun x -> s = x) a  then "a" + s
-    elif    String.length s > 1             then matchA (s.Substring(1)) a b non
+    elif    String.length s > 1             then matchA (s.Substring(0, (String.length s) - 1)) a b non
     else    "e1"
 
 let rec matchB (s:string) (a:string list) (b:string list) (non:string list) (nonPerm:string list):string =
     if String.length s <= 1 then
-        if      List.exists (fun x -> s.Substring(0, (String.length s) - 1) = x) nonPerm then s.Substring(0, (String.length s)-1)
-        elif    List.exists (fun x -> s = x) b then "b" + s
+        if    List.exists (fun x -> s = x) b then "b" + s
         else    "e1"
     else
-        if      List.exists (fun x -> s + "$" = x) b    then ("b" + s + "$")
+        if    List.exists (fun x -> s = x) b then "b" + s
+        elif    List.exists (fun x -> s + "$" = x) b    then ("b" + s + "$")
         elif    s.[String.length s - 2] = '$'           then "b" + s.Substring(0, (String.length s) - 1)
-        elif    String.exists (fun c -> c = '$') s      then matchB (s.Split('$').[0] + "$" + s.Split('$').[1].Substring(1)) a b non nonPerm
+        elif    String.exists (fun c -> c = '$') s      then
+                                                            let s1 = s.Split('$').[0]
+                                                            let s2 = s.Split('$').[1]
+                                                            matchB (s1 + "$" + s2.Substring(1)) a b non nonPerm
         elif    checkPref s a <> "" then "a" + checkPref s a
         elif    List.exists (fun x -> s = x) a          then "a" + s
         else    "e1"

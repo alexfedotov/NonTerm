@@ -19,8 +19,13 @@ let expr3 = ctx.MkEq(z1, x)
 let solver = ctx.MkSolver()
 *)
 
-let xs = [ "a"; "a"; "a"; "b"; "abc"; "bca" ]
-let ys = []
+let a = getLabels [ "ab" ]
+
+let b = getLabels (getNonNFPerm [ "ab" ])
+
+let non = [ "ab" ]
+
+let nonP = getNonNFPerm non
 
 [<EntryPoint>]
 let main argv = 
@@ -30,6 +35,6 @@ let main argv =
     for d in m.Decls do
         System.Console.WriteLine("{0} -> {1}", d.Name, m.ConstInterp(d))
         *)
-    printfn "%A" (checkPref "ab" "ab")
+    printfn "%A" (matchB "b" a b non nonP)
     System.Console.ReadKey() |> ignore
     0 // return an integer exit code
