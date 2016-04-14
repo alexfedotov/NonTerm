@@ -1,6 +1,6 @@
 ﻿module NonNF
 
-type transition = { inp:string; dest:int }
+type transition = { inp:char; dest:int }
 type state = { stateID:int; transitions: transition list; isFinal:bool }
 
 let getAlphabet (lhses:string list):char list = 
@@ -62,16 +62,16 @@ let rec checkPref (s:string) (ps:string list):string =
     | x::xs when checkPref' s x -> x
     | _ -> checkPref s ps.Tail        
 
-let matchA' (s:string) (a:string list) (b:string list):string =
+let matchA' (s:string) (a:string list) (b:string list) (non:string list) (nonPerm:string list):string =
     if      List.exists (fun x -> s = x) b          then "b" + s
     elif    List.exists (fun x -> s + "$" = x) b    then ("b" + s + "$")
     elif    List.exists (fun x -> s = x) a          then "a" + s
     else    "e1"
 
-let rec matchA (s:string) (a:string list) (b:string list) (non:string list):string = 
+let rec matchA (s:string) (a:string list) (b:string list) (non:string list) (nonPerm:string list):string = 
     if      List.exists (fun x -> s.Substring(0, (String.length s) - 1) = x) non then "a" + s.Substring(0, (String.length s)-1)
     elif    List.exists (fun x -> s = x) a  then "a" + s
-    elif    String.length s > 1             then matchA (s.Substring(0, (String.length s) - 1)) a b non
+    elif    String.length s > 1             then matchA (s.Substring(0, (String.length s) - 1)) a b non nonPerm
     else    "e1"
 
 let rec matchB (s:string) (a:string list) (b:string list) (non:string list) (nonPerm:string list):string =
@@ -90,6 +90,20 @@ let rec matchB (s:string) (a:string list) (b:string list) (non:string list) (non
         elif    List.exists (fun x -> s = x) a          then "a" + s
         else    "e1"
 
+let makeStateMap (a:string list) (b:string list):Map<string,int> =
+    let map = Map.empty.Add("e0", 0).Add("e1", 1)
+
+    let rec addToMap (p:string) (ls:string list) (m:Map<string,int>):Map<string,int> =
+        match ls with
+        | [] -> m
+        | x::xs -> addToMap p xs (m.Add(p + x, m.Count))
+
+    addToMap "b" b (addToMap "a" a map)
+
+let makeState (id:int) (l:string) (alph:char list) (a:string list) (b:string list) (non:string list) (nonPerm:string list) (m:Map<string,int>) f:state =
+    let trans = [for i in alph do yield {inp = i; dest = Map.find (f (l + i.ToString()) a b non nonPerm) m}]
+    {stateID = id; transitions = trans; isFinal = if (List.exists (fun x -> l = x) a || List.exists (fun x -> l = x) b) then true else false}
+
 let build (lhses:string list):state list = 
 
     let alph = getAlphabet (lhses)
@@ -100,4 +114,9 @@ let build (lhses:string list):state list =
 
     let labB = getLabels(nonNFPerm)
 
-    []
+    let m = makeStateMap labA labB
+
+    [makeState 0 "" alph labA labB lhses nonNFPerm m matchA'] @ 
+    [makeState 1 "" alph labA labB lhses nonNFPerm m matchA] @
+    [for lab in labA do yield makeState (Map.find lab m) lab alph labA labB lhses nonNFPerm m matchA] @
+    [for lab in labB do yield makeState (Map.find lab m) lab alph labA labB lhses nonNFPerm m matchB]
