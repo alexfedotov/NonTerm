@@ -118,5 +118,5 @@ let build (lhses:string list):state list =
 
     [makeState 0 "" alph labA labB lhses nonNFPerm m matchA'] @ 
     [makeState 1 "" alph labA labB lhses nonNFPerm m matchA] @
-    [for lab in labA do yield makeState (Map.find lab m) lab alph labA labB lhses nonNFPerm m matchA] @
-    [for lab in labB do yield makeState (Map.find lab m) lab alph labA labB lhses nonNFPerm m matchB]
+    [for lab in labA do yield makeState (Map.find ("a" + lab) m) lab alph labA labB lhses nonNFPerm m matchA] @
+    [for lab in labB do yield makeState (Map.find ("b" + lab) m) lab alph labA labB lhses nonNFPerm m matchB]
