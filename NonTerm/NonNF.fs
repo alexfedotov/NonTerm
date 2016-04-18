@@ -6,6 +6,8 @@
  * - DFA minimizer
  *)
 
+exception InnerError of string
+
 type transition = { inp:char; dest:int }
 type state = { stateID:int; transitions: transition list; isFinal:bool }
 
@@ -131,7 +133,7 @@ let build (lhses:string list):state list =
 
 type redGroup = { destGroups:int list; states:state list }
 
-let mooreReduce (s:state list):(state list) list = 
+let mooreReduce (s:state list):state list = 
     
     let g = [ List.filter (fun (x:state) -> x.isFinal = false) s; List.filter (fun (x:state) -> x.isFinal = true) s ]
 
@@ -168,5 +170,21 @@ let mooreReduce (s:state list):(state list) list =
         
         if gs <> reduceStep gs then reduce (reduceStep gs) else gs
 
-    //printfn "%A" (split (List.head g))
-    reduce g
+    let rec getNewTrans (counter:int) (id:int) (states:(state list) list):int =
+        let getNewTrans' (id:int) (s:state list):int = if List.exists (fun (x:state) -> x.stateID = id) s then id else -1
+        
+        match states with
+        | [] -> raise (InnerError("State not found"))
+        | x::xs -> if getNewTrans' id x <> -1 then id else getNewTrans (counter+1) id xs  
+
+    let builReducedSt (id:int) (s:state list) (g:(state list) list):state =
+
+        let rec buildReducedTr (from:int) (s:state list) (groups:(state list) list):transition list =
+            match s with
+            | [] -> []
+            | x::xs -> (List.map (fun z -> { inp = z.inp; dest = getNewTrans 0 z.dest groups} ) x.transitions) @ buildReducedTr from xs groups
+        { stateID = id; transitions = Set.toList (set (buildReducedTr id s g)); isFinal = true }
+
+    let r = reduce g
+    let newStates = [for i in 0..((List.length r) - 1) do yield builReducedSt 0 (r.[i]) r]
+    newStates
