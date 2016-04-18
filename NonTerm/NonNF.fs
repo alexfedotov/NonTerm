@@ -1,5 +1,11 @@
 ﻿module NonNF
 
+(*
+ *TODOs:
+ * - Refactor
+ * - DFA minimizer
+ *)
+
 type transition = { inp:char; dest:int }
 type state = { stateID:int; transitions: transition list; isFinal:bool }
 
@@ -63,31 +69,33 @@ let rec checkPref (s:string) (ps:string list):string =
     | _ -> checkPref s ps.Tail        
 
 let matchA' (s:string) (a:string list) (b:string list) (non:string list) (nonPerm:string list):string =
+    //if      List.exists (fun x -> s = x) non        then "a" + s
     if      List.exists (fun x -> s = x) b          then "b" + s
     elif    List.exists (fun x -> s + "$" = x) b    then ("b" + s + "$")
     elif    List.exists (fun x -> s = x) a          then "a" + s
     else    "e1"
 
 let rec matchA (s:string) (a:string list) (b:string list) (non:string list) (nonPerm:string list):string = 
-    if      List.exists (fun x -> s.Substring(0, (String.length s) - 1) = x) non then "a" + s.Substring(0, (String.length s)-1)
-    elif    List.exists (fun x -> s = x) a  then "a" + s
-    elif    String.length s > 1             then matchA (s.Substring(0, (String.length s) - 1)) a b non nonPerm
+    if      List.exists (fun x -> s = x) a  then "a" + s
+    elif    String.length s > 1             then matchA (s.Substring(1)) a b non nonPerm
     else    "e1"
 
 let rec matchB (s:string) (a:string list) (b:string list) (non:string list) (nonPerm:string list):string =
     if String.length s <= 1 then
-        if    List.exists (fun x -> s = x) b then "b" + s
+        //if      List.exists (fun (x:string) -> (s.Replace("$","") ) = x) non then "a" + (s.Replace ("$",""))
+        if      List.exists (fun x -> s = x) b then "b" + s
         else    "e1"
     else
-        if    List.exists (fun x -> s = x) b then "b" + s
+//        if      List.exists (fun (x:string) -> (s.Replace ("$","")) = x) non then "a" + (s.Replace ("$","")) 
+        if      List.exists (fun x -> s = x) b          then "b" + s
         elif    List.exists (fun x -> s + "$" = x) b    then ("b" + s + "$")
         elif    s.[String.length s - 2] = '$'           then "b" + s.Substring(0, (String.length s) - 1)
         elif    String.exists (fun c -> c = '$') s      then
                                                             let s1 = s.Split('$').[0]
                                                             let s2 = s.Split('$').[1]
                                                             matchB (s1 + "$" + s2.Substring(1)) a b non nonPerm
-        elif    checkPref s a <> "" then "a" + checkPref s a
-        elif    List.exists (fun x -> s = x) a          then "a" + s
+        elif    checkPref (s.Replace ("$","")) a <> "" then "a" + checkPref (s.Replace ("$","")) a
+//        elif    List.exists (fun (x:string) -> s = (x.Replace ("$",""))) a          then "a" + s
         else    "e1"
 
 let makeStateMap (a:string list) (b:string list):Map<string,int> =
@@ -102,7 +110,7 @@ let makeStateMap (a:string list) (b:string list):Map<string,int> =
 
 let makeState (id:int) (l:string) (alph:char list) (a:string list) (b:string list) (non:string list) (nonPerm:string list) (m:Map<string,int>) f:state =
     let trans = [for i in alph do yield {inp = i; dest = Map.find (f (l + i.ToString()) a b non nonPerm) m}]
-    {stateID = id; transitions = trans; isFinal = if (List.exists (fun x -> l = x) a || List.exists (fun x -> l = x) b) then true else false}
+    {stateID = id; transitions = trans; isFinal = if (List.exists (fun x -> (l.Replace ("$","")) = x) non || List.exists (fun x -> l = x) nonPerm) then true else false}
 
 let build (lhses:string list):state list = 
 
@@ -120,3 +128,45 @@ let build (lhses:string list):state list =
     [makeState 1 "" alph labA labB lhses nonNFPerm m matchA] @
     [for lab in labA do yield makeState (Map.find ("a" + lab) m) lab alph labA labB lhses nonNFPerm m matchA] @
     [for lab in labB do yield makeState (Map.find ("b" + lab) m) lab alph labA labB lhses nonNFPerm m matchB]
+
+type redGroup = { destGroups:int list; states:state list }
+
+let mooreReduce (s:state list):(state list) list = 
+    
+    let g = [ List.filter (fun (x:state) -> x.isFinal = false) s; List.filter (fun (x:state) -> x.isFinal = true) s ]
+
+    let split (s:state list):(state list) list =
+
+        let rec getDest (t:transition list):int list = 
+            match t with
+            | [] -> []
+            | x::xs -> [ x.dest ] @ getDest xs
+
+        let rec formGroups (s:state list) (g:redGroup list):redGroup list =
+            match s with
+            | [] -> g
+            | x::xs ->  if 
+                            List.exists (fun y -> y.destGroups = getDest x.transitions) g 
+                        then 
+                            formGroups xs (List.map (fun z -> if z.destGroups = getDest x.transitions then { destGroups = z.destGroups; states = z.states @ [x] } else z) g) 
+                        else 
+                            formGroups xs (g @ [{ destGroups = getDest x.transitions; states = [x] }])
+
+        let rec grToList (gr:redGroup list):(state list) list = 
+            match gr with
+            | [] -> [[]]
+            | x::xs -> [x.states] @ grToList xs
+            
+        List.filter (fun x -> x <> []) (formGroups s [] |> grToList)
+
+    let rec reduce (gs:(state list) list):(state list) list =
+        
+        let rec reduceStep (gs:(state list) list):(state list) list = 
+            match gs with
+            | [] -> []
+            | x::xs -> split x @ reduceStep xs
+        
+        if gs <> reduceStep gs then reduce (reduceStep gs) else gs
+
+    //printfn "%A" (split (List.head g))
+    reduce g
